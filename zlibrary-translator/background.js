@@ -1,5 +1,15 @@
 const cache = new Map();
 const pending = new Map();
+importScripts('history-model.js');
+let historyQueue = Promise.resolve();
+function mutateHistory(change) {
+  const job = historyQueue.then(async () => {
+    const {history = []} = await chrome.storage.local.get('history');
+    await chrome.storage.local.set({history: change(history)});
+  });
+  historyQueue = job.catch(() => {});
+  return job;
+}
 
 chrome.runtime.onInstalled.addListener(async () => {
   const scripts = await chrome.scripting.getRegisteredContentScripts();
@@ -35,6 +45,12 @@ async function translate(text) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (message?.type === 'history-delete' || message?.type === 'history-clear') {
+    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('history.html')) return;
+    mutateHistory(records => message.type === 'history-clear' ? [] : records.filter(record => record.id !== message.id))
+      .then(() => reply({ok: true}), error => reply({ok: false, error: error.message}));
+    return true;
+  }
   if (message?.type !== 'translate') return;
   (async () => {
     if (!sender.tab || !sender.url) throw new Error('请求来源无效。');
@@ -43,7 +59,15 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (!sites.includes(origin)) throw new Error('请先在扩展面板中启用当前网站。');
     const text = typeof message.text === 'string' ? message.text.trim() : '';
     if (!text || text.length > 3000) throw new Error('请选择 1–3000 个字符。');
-    reply({ok: true, text: await translate(text)});
+    const translated = await translate(text);
+    let warning = '';
+    try {
+      await mutateHistory(records => [{
+        id: crypto.randomUUID(), original: text, translation: translated,
+        time: Date.now(), source: HistoryModel.source(sender.tab.url || sender.url)
+      }, ...records].slice(0, HistoryModel.limit));
+    } catch { warning = '译文已生成，但记录保存失败，请导出并清理历史后重试。'; }
+    reply({ok: true, text: translated, warning});
   })().catch(error => reply({ok: false, error: error.message}));
   return true;
 });

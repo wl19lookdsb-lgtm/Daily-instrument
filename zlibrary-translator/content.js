@@ -39,6 +39,7 @@
       if (token !== request || !host) return;
       if (!response?.ok) throw new Error(response?.error || '翻译失败，请重试。');
       result.textContent = response.text;
+      if (response.warning) result.textContent += '\n\n' + response.warning;
     } catch (error) {
       if (token !== request || !host) return;
       result.textContent = error.message.includes('context invalidated') ? '扩展已更新，请刷新网页。' : error.message;

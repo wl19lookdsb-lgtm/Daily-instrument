@@ -1,10 +1,10 @@
 {
   "name": "zlibrary-chinese-translator",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Microsoft Edge selection-to-Chinese translation extension for web readers",
   "scripts": {
-    "test": "node --check zlibrary-translator/background.js && node --check zlibrary-translator/content.js && node --check zlibrary-translator/popup.js && node zlibrary-translator-tests.cjs && node zlibrary-translator-selection-tests.cjs"
+    "test": "node --check zlibrary-translator/background.js && node --check zlibrary-translator/content.js && node --check zlibrary-translator/popup.js && node --check zlibrary-translator/history.js && node --check zlibrary-translator/history-model.js && node zlibrary-translator-tests.cjs && node zlibrary-translator-selection-tests.cjs"
   },
   "engines": {"node": ">=20"}
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Z-Library 划词中文翻译",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "在你授权的网站上选中文字，即可查看简体中文翻译。",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["https://translate.googleapis.com/*"],

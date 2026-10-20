@@ -2,11 +2,14 @@ const {readFileSync} = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 let listener, calls = 0, mode = 'ok';
-const context = {URL, URLSearchParams, AbortController, setTimeout, clearTimeout, Map, TypeError,
-  chrome: {runtime: {onInstalled: {addListener() {}}, onMessage: {addListener(fn) {listener = fn;}}}, storage: {local: {async get() {return {sites: ['https://example.org']};}}}},
+let data = {sites: ['https://example.org']}, storageFailed = false;
+const context = {URL, URLSearchParams, AbortController, setTimeout, clearTimeout, Map, TypeError, crypto: require('node:crypto').webcrypto,
+  chrome: {runtime: {id: 'test', getURL: path => 'chrome-extension://test/' + path, onInstalled: {addListener() {}}, onMessage: {addListener(fn) {listener = fn;}}}, storage: {local: {async get() {return structuredClone(data);}, async set(value) {if (storageFailed) throw Error('quota'); Object.assign(data, structuredClone(value));}}}},
   fetch: async () => {calls++; if (mode === 'network') throw new TypeError('failed'); return {ok: mode !== 'http', status: 429, json: async () => mode === 'empty' ? [] : [[['你好', 'Hello']]]};}
 };
-vm.runInNewContext(readFileSync('zlibrary-translator/background.js', 'utf8'), context);
+vm.createContext(context);
+context.importScripts = file => vm.runInContext(readFileSync('zlibrary-translator/' + file, 'utf8'), context);
+vm.runInContext(readFileSync('zlibrary-translator/background.js', 'utf8'), context);
 const send = (text, url = 'https://example.org/book') => new Promise(resolve => listener({type: 'translate', text}, {tab: {id: 1}, url}, resolve));
 (async () => {
   assert.equal((await send('Hello')).text, '你好');
@@ -20,8 +23,31 @@ const send = (text, url = 'https://example.org/book') => new Promise(resolve => 
   mode = 'network'; assert.match((await send('offline')).error, /无法连接/);
   mode = 'ok'; const previous = calls;
   await Promise.all([send('same'), send('same')]); assert.equal(calls, previous + 1);
+  assert.equal(data.history.length, 4, 'cache hits count as new queries; failed queries are not saved');
+  assert.equal(context.HistoryModel.ranking(data.history).find(x => x.word === 'hello').count, 2);
+  await send('BOOK!'); await send('book'); await send('books'); await send('a whole paragraph.');
+  const ranks = context.HistoryModel.ranking(data.history);
+  assert.equal(ranks.find(x => x.word === 'book').count, 2);
+  assert.equal(ranks.find(x => x.word === 'books').count, 1);
+  assert.equal(ranks.some(x => x.word === 'a whole paragraph'), false);
+  assert.equal(context.HistoryModel.word('你好'), null);
+  assert.equal(context.HistoryModel.source('https://example.org/book?token=secret#private'), 'https://example.org/book');
+  assert.equal(context.HistoryModel.source('javascript:alert(1)'), '');
+  const historyMessage = message => new Promise(resolve => listener(message, {id: 'test', url: 'chrome-extension://test/history.html'}, resolve));
+  await historyMessage({type: 'history-delete', id: data.history.find(x => x.original === 'BOOK!').id});
+  assert.equal(context.HistoryModel.ranking(data.history).find(x => x.word === 'book').count, 1);
+  storageFailed = true;
+  const failedSave = await send('failure');
+  assert.equal(failedSave.ok, true); assert.ok(failedSave.warning);
+  storageFailed = false;
+  await send('recovered'); assert.ok(data.history.some(x => x.original === 'recovered'));
+  const oldLimit = context.HistoryModel.limit; context.HistoryModel.limit = 3;
+  await send('bounded'); assert.equal(data.history.length, 3); context.HistoryModel.limit = oldLimit;
+  assert.equal(listener({type: 'history-clear'}, {id: 'test', url: 'https://example.org'}, () => assert.fail('untrusted clear')), undefined);
+  await historyMessage({type: 'history-clear'}); assert.equal(data.history.length, 0);
   const manifest = JSON.parse(readFileSync('zlibrary-translator/manifest.json', 'utf8'));
   assert.equal(manifest.manifest_version, 3);
   for (const file of ['background.js', 'popup.js', 'content.js', 'popup.html', 'popup.css']) assert.ok(readFileSync('zlibrary-translator/' + file).length);
   console.log('PASS: translation, cache, authorization, length, HTTP/network/empty failures, concurrent deduplication, package files');
+  console.log('PASS: saved history, concurrent writes, word ranking, deletion, clear authorization, retention, quota recovery and sanitized source URLs');
 })().catch(error => {console.error(error); process.exitCode = 1;});

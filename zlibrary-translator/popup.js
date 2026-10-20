@@ -1,5 +1,6 @@
 const button = document.querySelector('#toggle');
 const status = document.querySelector('#status');
+document.querySelector('#history').addEventListener('click', () => chrome.tabs.create({url: chrome.runtime.getURL('history.html')}));
 let tab, origin, pattern, id, enabled;
 async function init() {
   [tab] = await chrome.tabs.query({active: true, currentWindow: true});

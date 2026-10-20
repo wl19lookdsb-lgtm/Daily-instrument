@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>翻译记录 · 我的生词本</title><link rel="stylesheet" href="history.css"></head>
+<body><main>
+<header><div><span class="eyebrow">我的阅读笔记 / WORD NOTEBOOK</span><h1>查过的词，记下来。</h1><p>把反复查询的词放在前面，让下一次阅读轻松一点。</p></div><button id="export">导出全部记录 JSON ↓</button></header>
+<section class="stats" aria-label="统计概览"><div><strong id="total">0</strong><span>翻译记录</span></div><div><strong id="words">0</strong><span>不同单词</span></div><div><strong id="repeated">0</strong><span>重复查询的词</span></div></section>
+<div class="toolbar"><label for="search">搜索记录</label><input id="search" type="search" placeholder="搜索原文、译文或来源网站"><button id="clear">清空记录</button></div>
+<p id="status" role="status"></p>
+<div class="columns"><section><h2>翻译历史 <small>最近查询在前</small></h2><div id="records"></div><button id="more" hidden>显示更多</button></section>
+<aside><h2>单词排行榜</h2><p class="hint">仅统计单独查询的英文词；忽略大小写和首尾标点。词形分别统计，例如 book 与 books。段落不拆词。</p><ol id="ranking"></ol></aside></div>
+<footer>数据仅保存在此浏览器本地，保留最近 1500 条成功查询；排行由这些记录计算，删除记录后同步变化。来源地址不含查询参数或片段。卸载扩展或清理扩展数据可能丢失记录，请定期导出。</footer>
+</main><script src="history-model.js"></script><script src="history.js"></script></body></html>
